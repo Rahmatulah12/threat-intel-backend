@@ -10,6 +10,7 @@ import (
 func TestLoad(t *testing.T) {
 	t.Run("load with default values", func(t *testing.T) {
 		config := Load()
+		t.Setenv("JWT_SECRET", "your-secret-key-change-in-production")
 
 		assert.Equal(t, "8080", config.Server.Port)
 		assert.Equal(t, "0.0.0.0", config.Server.Host)

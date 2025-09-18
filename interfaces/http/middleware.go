@@ -7,18 +7,26 @@ import (
 	"threat-intel-backend/domain"
 	"threat-intel-backend/infrastructure/jwt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/newrelic/go-agent/v3/integrations/nrgin"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
 )
 
+type JWTServiceInterface interface {
+	ValidateAccessToken(token string) (*jwt.Claims, error)
+	GenerateAccessToken(userID uuid.UUID, role domain.UserRole) (string, error)
+	GenerateRefreshToken(userID uuid.UUID) (string, error)
+	ValidateRefreshToken(token string) (uuid.UUID, error)
+}
+
 type Middleware struct {
-	jwtService *jwt.Service
+	jwtService JWTServiceInterface
 	logger     *logrus.Logger
 }
 
-func NewMiddleware(jwtService *jwt.Service, logger *logrus.Logger) *Middleware {
+func NewMiddleware(jwtService JWTServiceInterface, logger *logrus.Logger) *Middleware {
 	return &Middleware{
 		jwtService: jwtService,
 		logger:     logger,

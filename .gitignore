@@ -6,6 +6,8 @@
 *.dylib
 bin/
 dist/
+run.sh
+run*.sh
 
 # Test binary, built with `go test -c`
 *.test

@@ -3,18 +3,31 @@ package http
 import (
 	"net/http"
 	"threat-intel-backend/application"
+	"threat-intel-backend/domain"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
+type AuthServiceInterface interface {
+	Login(req application.LoginRequest) (*application.AuthResponse, error)
+	Register(req application.RegisterRequest) (*application.AuthResponse, error)
+	RefreshToken(token string) (*application.AuthResponse, error)
+}
+
+type OrderServiceInterface interface {
+	CreateOrder(userID uuid.UUID, req application.CreateOrderRequest) (*application.OrderResponse, error)
+	GetOrder(orderID, userID uuid.UUID) (*domain.Order, error)
+	GetUserOrders(userID uuid.UUID) ([]*domain.Order, error)
+}
+
 type Handler struct {
-	authService  *application.AuthService
-	orderService *application.OrderService
+	authService  AuthServiceInterface
+	orderService OrderServiceInterface
 	logger       *logrus.Logger
 }
 
-func NewHandler(authService *application.AuthService, orderService *application.OrderService, logger *logrus.Logger) *Handler {
+func NewHandler(authService AuthServiceInterface, orderService OrderServiceInterface, logger *logrus.Logger) *Handler {
 	return &Handler{
 		authService:  authService,
 		orderService: orderService,
