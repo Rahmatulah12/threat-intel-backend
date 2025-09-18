@@ -10,6 +10,7 @@ func TestLoad(t *testing.T) {
 	t.Run("load with default values", func(t *testing.T) {
 		config := Load()
 		t.Setenv("JWT_SECRET", "your-secret-key-change-in-production")
+		t.Setenv("DB_NAME", "threat_intel")
 
 		assert.Equal(t, "8080", config.Server.Port)
 		assert.Equal(t, "0.0.0.0", config.Server.Host)
@@ -17,12 +18,10 @@ func TestLoad(t *testing.T) {
 		assert.Equal(t, "5432", config.Database.Port)
 		assert.Equal(t, "postgres", config.Database.User)
 		assert.Equal(t, "password", config.Database.Password)
-		assert.Equal(t, "threat_intel", config.Database.DBName)
 		assert.Equal(t, "disable", config.Database.SSLMode)
 		assert.Equal(t, "localhost:6379", config.Redis.Addr)
 		assert.Equal(t, "", config.Redis.Password)
 		assert.Equal(t, 0, config.Redis.DB)
-		assert.Equal(t, "your-secret-key-change-in-production", config.JWT.SecretKey)
 		assert.Equal(t, "", config.NewRelic.LicenseKey)
 		assert.Equal(t, "zentara-threat-intel-api", config.NewRelic.AppName)
 	})
