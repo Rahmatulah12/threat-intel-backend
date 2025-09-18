@@ -94,7 +94,7 @@ func TestHealth(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	var response map[string]string
-	json.Unmarshal(w.Body.Bytes(), &response)
+	_ = json.Unmarshal(w.Body.Bytes(), &response)
 	assert.Equal(t, "healthy", response["status"])
 	assert.Equal(t, "threat-intel-backend", response["service"])
 }

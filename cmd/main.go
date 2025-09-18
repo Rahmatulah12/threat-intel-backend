@@ -137,7 +137,9 @@ func main() {
 	if monitor != nil {
 		monitor.Shutdown()
 	}
-	redisClient.Close()
+	if err := redisClient.Close(); err != nil {
+		logger.WithError(err).Error("Failed to close Redis client")
+	}
 
 	logger.Info("Server exited")
 }

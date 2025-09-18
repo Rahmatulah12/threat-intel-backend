@@ -1,7 +1,6 @@
 package configs
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,16 +28,10 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("load with environment variables", func(t *testing.T) {
-		os.Setenv("SERVER_PORT", "9000")
-		os.Setenv("DB_HOST", "testdb")
-		os.Setenv("REDIS_DB", "5")
-		os.Setenv("JWT_SECRET", "test-secret")
-		defer func() {
-			os.Unsetenv("SERVER_PORT")
-			os.Unsetenv("DB_HOST")
-			os.Unsetenv("REDIS_DB")
-			os.Unsetenv("JWT_SECRET")
-		}()
+		t.Setenv("SERVER_PORT", "9000")
+		t.Setenv("DB_HOST", "testdb")
+		t.Setenv("REDIS_DB", "5")
+		t.Setenv("JWT_SECRET", "test-secret")
 
 		config := Load()
 
@@ -51,8 +44,7 @@ func TestLoad(t *testing.T) {
 
 func TestGetEnv(t *testing.T) {
 	t.Run("returns environment value when set", func(t *testing.T) {
-		os.Setenv("TEST_KEY", "test_value")
-		defer os.Unsetenv("TEST_KEY")
+		t.Setenv("TEST_KEY", "test_value")
 
 		result := getEnv("TEST_KEY", "default")
 
@@ -66,8 +58,7 @@ func TestGetEnv(t *testing.T) {
 	})
 
 	t.Run("returns default value when empty", func(t *testing.T) {
-		os.Setenv("EMPTY_KEY", "")
-		defer os.Unsetenv("EMPTY_KEY")
+		t.Setenv("EMPTY_KEY", "")
 
 		result := getEnv("EMPTY_KEY", "default")
 
@@ -77,8 +68,7 @@ func TestGetEnv(t *testing.T) {
 
 func TestGetEnvAsInt(t *testing.T) {
 	t.Run("returns parsed int when valid", func(t *testing.T) {
-		os.Setenv("INT_KEY", "42")
-		defer os.Unsetenv("INT_KEY")
+		t.Setenv("INT_KEY", "42")
 
 		result := getEnvAsInt("INT_KEY", 10)
 
@@ -92,8 +82,7 @@ func TestGetEnvAsInt(t *testing.T) {
 	})
 
 	t.Run("returns default when invalid int", func(t *testing.T) {
-		os.Setenv("INVALID_INT", "not_a_number")
-		defer os.Unsetenv("INVALID_INT")
+		t.Setenv("INVALID_INT", "not_a_number")
 
 		result := getEnvAsInt("INVALID_INT", 10)
 
@@ -101,8 +90,7 @@ func TestGetEnvAsInt(t *testing.T) {
 	})
 
 	t.Run("returns default when empty", func(t *testing.T) {
-		os.Setenv("EMPTY_INT", "")
-		defer os.Unsetenv("EMPTY_INT")
+		t.Setenv("EMPTY_INT", "")
 
 		result := getEnvAsInt("EMPTY_INT", 10)
 
