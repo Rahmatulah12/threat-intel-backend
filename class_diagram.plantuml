@@ -1,0 +1,324 @@
+@startuml ThreatIntelBackendClassDiagram
+
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 10
+skinparam packageStyle rectangle
+skinparam legendBackgroundColor #EEEEEE
+skinparam legendBorderColor #000000
+
+package "Domain Layer" {
+    enum UserRole <<Value Object>> {
+        RoleAdmin
+        RoleAnalyst
+        RoleViewer
+    }
+
+    enum OrderStatus <<Value Object>> {
+        OrderStatusPending
+        OrderStatusConfirmed
+        OrderStatusCompleted
+        OrderStatusCancelled
+    }
+
+    class User <<Entity>> {
+        +ID: UUID
+        +Email: string
+        +PasswordHash: string
+        +Role: UserRole
+        +IsActive: bool
+        +CreatedAt: time.Time
+        +UpdatedAt: time.Time
+        --
+        +NewUser(email, password, role): *User
+        +ValidatePassword(password): bool
+        +HasPermission(requiredRole): bool
+    }
+
+    class Order <<Entity>> {
+        +ID: UUID
+        +UserID: UUID
+        +ItemID: string
+        +Quantity: int
+        +Status: OrderStatus
+        +CreatedAt: time.Time
+        +UpdatedAt: time.Time
+        +User: User
+    }
+
+    class OrderAggregate <<Aggregate>> {
+        +Order: Order
+        --
+        +NewOrder(userID, itemID, quantity): *OrderAggregate
+        +Confirm()
+        +Complete()
+        +Cancel()
+    }
+
+    interface UserRepository <<Port>> {
+        +Save(user *User): error
+        +FindByID(id UUID): (*User, error)
+        +FindByEmail(email string): (*User, error)
+    }
+
+    interface OrderRepository <<Port>> {
+        +Save(order *Order): error
+        +FindByID(id UUID): (*Order, error)
+        +FindByUserID(userID UUID): ([]*Order, error)
+    }
+}
+
+package "Application Layer" {
+    class AuthService <<Use Case>> {
+        -userRepo: UserRepository
+        -jwtService: *JWTService
+        --
+        +NewAuthService(userRepo, jwtService): *AuthService
+        +Login(req LoginRequest): (*AuthResponse, error)
+        +Register(req RegisterRequest): (*AuthResponse, error)
+        +RefreshToken(refreshToken string): (*AuthResponse, error)
+    }
+
+    class OrderService <<Use Case>> {
+        -orderRepo: OrderRepository
+        -userRepo: UserRepository
+        --
+        +NewOrderService(orderRepo, userRepo): *OrderService
+        +CreateOrder(userID UUID, req CreateOrderRequest): (*OrderResponse, error)
+        +GetOrder(orderID, userID UUID): (*Order, error)
+        +GetUserOrders(userID UUID): ([]*Order, error)
+    }
+
+    class LoginRequest <<DTO>> {
+        +Email: string
+        +Password: string
+    }
+
+    class RegisterRequest <<DTO>> {
+        +Email: string
+        +Password: string
+        +Role: UserRole
+    }
+
+    class AuthResponse <<DTO>> {
+        +AccessToken: string
+        +RefreshToken: string
+        +User: *User
+    }
+
+    class CreateOrderRequest <<DTO>> {
+        +ItemID: string
+        +Quantity: int
+    }
+
+    class OrderResponse <<DTO>> {
+        +OrderID: string
+        +Status: OrderStatus
+    }
+}
+
+package "Infrastructure Layer" {
+    class PostgresUserRepository <<Adapter>> {
+        -db: *gorm.DB
+        --
+        +NewUserRepository(db): *PostgresUserRepository
+        +Save(user *User): error
+        +FindByID(id UUID): (*User, error)
+        +FindByEmail(email string): (*User, error)
+    }
+
+    class PostgresOrderRepository <<Adapter>> {
+        -db: *gorm.DB
+        --
+        +NewOrderRepository(db): *PostgresOrderRepository
+        +Save(order *Order): error
+        +FindByID(id UUID): (*Order, error)
+        +FindByUserID(userID UUID): ([]*Order, error)
+    }
+
+    class Database <<Service>> {
+        +NewConnection(config Config): (*gorm.DB, error)
+        +Migrate(db *gorm.DB): error
+    }
+
+    class DatabaseConfig <<Configuration>> {
+        +Host: string
+        +Port: string
+        +User: string
+        +Password: string
+        +DBName: string
+        +SSLMode: string
+    }
+
+    class JWTService <<Service>> {
+        -secretKey: []byte
+        -accessTokenTTL: time.Duration
+        -refreshTokenTTL: time.Duration
+        --
+        +NewService(secretKey string): *JWTService
+        +GenerateAccessToken(userID UUID, role UserRole): (string, error)
+        +GenerateRefreshToken(userID UUID): (string, error)
+        +ValidateAccessToken(tokenString string): (*Claims, error)
+        +ValidateRefreshToken(tokenString string): (UUID, error)
+    }
+
+    class Claims <<Value Object>> {
+        +UserID: UUID
+        +Role: UserRole
+        +RegisteredClaims: jwt.RegisteredClaims
+    }
+
+    class RedisClient <<Service>> {
+        -rdb: *redis.Client
+        --
+        +NewClient(addr, password string, db int): *RedisClient
+        +Set(ctx, key string, value interface{}, expiration time.Duration): error
+        +Get(ctx, key string): (string, error)
+        +Del(ctx, keys ...string): error
+        +Exists(ctx, keys ...string): (int64, error)
+        +Ping(ctx): error
+        +Close(): error
+    }
+
+    class NewRelicMonitor <<Service>> {
+        -app: *newrelic.Application
+        --
+        +NewMonitor(licenseKey, appName string): (*NewRelicMonitor, error)
+        +GetApplication(): *newrelic.Application
+        +RecordCustomEvent(eventType string, params map[string]interface{})
+        +RecordCustomMetric(name string, value float64)
+        +Shutdown()
+    }
+}
+
+package "Interface Layer" {
+    class Handler <<Controller>> {
+        -authService: *AuthService
+        -orderService: *OrderService
+        -logger: *logrus.Logger
+        --
+        +NewHandler(authService, orderService, logger): *Handler
+        +Health(c *gin.Context)
+        +Login(c *gin.Context)
+        +Register(c *gin.Context)
+        +RefreshToken(c *gin.Context)
+        +CreateOrder(c *gin.Context)
+        +GetOrder(c *gin.Context)
+        +GetUserOrders(c *gin.Context)
+    }
+
+    class Middleware <<Middleware>> {
+        -jwtService: *JWTService
+        -logger: *logrus.Logger
+        --
+        +NewMiddleware(jwtService, logger): *Middleware
+        +CORS(): gin.HandlerFunc
+        +Logger(): gin.HandlerFunc
+        +Auth(): gin.HandlerFunc
+        +RequireRole(requiredRole UserRole): gin.HandlerFunc
+        +RateLimit(): gin.HandlerFunc
+        +NewRelic(app *newrelic.Application): gin.HandlerFunc
+    }
+
+    class Router <<Router>> {
+        -handler: *Handler
+        -middleware: *Middleware
+        --
+        +NewRouter(handler, middleware): *Router
+        +Setup(app *newrelic.Application): *gin.Engine
+    }
+}
+
+package "Configuration" {
+    class Config <<Configuration>> {
+        +Server: ServerConfig
+        +Database: DatabaseConfig
+        +Redis: RedisConfig
+        +JWT: JWTConfig
+        +NewRelic: NewRelicConfig
+        --
+        +Load(): *Config
+    }
+
+    class ServerConfig <<Configuration>> {
+        +Port: string
+        +Host: string
+    }
+
+    class RedisConfig <<Configuration>> {
+        +Addr: string
+        +Password: string
+        +DB: int
+    }
+
+    class JWTConfig <<Configuration>> {
+        +SecretKey: string
+    }
+
+    class NewRelicConfig <<Configuration>> {
+        +LicenseKey: string
+        +AppName: string
+    }
+}
+
+' Domain Relationships
+User ||--|| UserRole
+Order ||--|| OrderStatus
+Order }|--|| User
+OrderAggregate ||--|| Order
+
+' Application Layer Dependencies
+AuthService --> UserRepository
+AuthService --> JWTService
+OrderService --> OrderRepository
+OrderService --> UserRepository
+
+' Infrastructure Implementations
+PostgresUserRepository ..|> UserRepository
+PostgresOrderRepository ..|> OrderRepository
+PostgresUserRepository --> Database
+PostgresOrderRepository --> Database
+Database --> DatabaseConfig
+
+' Interface Layer Dependencies
+Handler --> AuthService
+Handler --> OrderService
+Middleware --> JWTService
+Router --> Handler
+Router --> Middleware
+
+' Configuration Relationships
+Config --> ServerConfig
+Config --> DatabaseConfig
+Config --> RedisConfig
+Config --> JWTConfig
+Config --> NewRelicConfig
+
+' JWT & Claims
+JWTService --> Claims
+Claims --> UserRole
+
+' Request/Response DTOs
+AuthService --> LoginRequest
+AuthService --> RegisterRequest
+AuthService --> AuthResponse
+OrderService --> CreateOrderRequest
+OrderService --> OrderResponse
+
+legend right
+  |= Symbol |= Description |
+  | <<Entity>> | Domain entities with identity |
+  | <<Aggregate>> | Domain aggregate root |
+  | <<Value Object>> | Immutable objects without identity |
+  | <<Port>> | Domain interfaces (hexagonal architecture) |
+  | <<Use Case>> | Application layer services |
+  | <<DTO>> | Data Transfer Objects |
+  | <<Adapter>> | Infrastructure implementations |
+  | <<Service>> | Infrastructure services |
+  | <<Controller>> | HTTP request handlers |
+  | <<Middleware>> | Cross-cutting concerns |
+  | <<Router>> | Route configuration |
+  | <<Configuration>> | Configuration objects |
+endlegend
+
+@enduml

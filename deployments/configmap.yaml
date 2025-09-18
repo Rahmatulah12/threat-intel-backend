@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: threat-intel-config
+  namespace: threat-intel
+data:
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_USER: "postgres"
+  DB_NAME: "threat_intel"
+  DB_SSLMODE: "disable"
+  REDIS_ADDR: "redis-service:6379"
+  REDIS_DB: "0"
+  SERVER_HOST: "0.0.0.0"
+  SERVER_PORT: "8080"
+  NEW_RELIC_APP_NAME: "zentara-threat-intel-api"
